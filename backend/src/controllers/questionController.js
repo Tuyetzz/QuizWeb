@@ -15,8 +15,8 @@ exports.getAllQuestions = async (req, res) => {
     const questions = await Question.findAll({
       where,
       include: [
-        { model: Subject, attributes: ["id", "name", "slug"] },
-        { model: Chapter, attributes: ["id", "name", "order"] }
+        { model: Subject, as: "subject", attributes: ["id", "name", "slug"] },
+        { model: Chapter, as: "chapter", attributes: ["id", "name", "order"] }
       ],
       order: [["id", "DESC"]]
     });
@@ -31,8 +31,8 @@ exports.getQuestionById = async (req, res) => {
   try {
     const question = await Question.findByPk(req.params.id, {
       include: [
-        { model: Subject, attributes: ["id", "name", "slug"] },
-        { model: Chapter, attributes: ["id", "name", "order"] }
+        { model: Subject, as: "subject", attributes: ["id", "name", "slug"] },
+        { model: Chapter, as: "chapter", attributes: ["id", "name", "order"] }
       ]
     });
     if (!question) {

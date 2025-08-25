@@ -9,7 +9,9 @@ exports.getAllChapters = async (req, res) => {
 
     const chapters = await Chapter.findAll({
       where,
-      include: [{ model: Subject, attributes: ["id", "name", "slug"] }],
+      include: [
+        { model: Subject, as: "subject", attributes: ["id", "name", "slug"] }
+      ],
       order: [["order", "ASC"]]
     });
     res.json(chapters);
@@ -22,7 +24,9 @@ exports.getAllChapters = async (req, res) => {
 exports.getChapterById = async (req, res) => {
   try {
     const chapter = await Chapter.findByPk(req.params.id, {
-      include: [{ model: Subject, attributes: ["id", "name", "slug"] }]
+      include: [
+        { model: Subject, as: "subject", attributes: ["id", "name", "slug"] }
+      ]
     });
     if (!chapter) {
       return res.status(404).json({ error: "Chapter không tồn tại" });
