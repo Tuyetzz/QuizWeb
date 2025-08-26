@@ -11,7 +11,11 @@ const questionRoutes = require("./routes/questionRoutes");  //question
 const optionRoutes = require("./routes/optionRoutes");  //options
 const attemptRoutes = require("./routes/attemptRoutes");  //attempt
 const answerRoutes = require("./routes/answerRoutes");  //answer
+const resultSummaryRoutes = require("./routes/resultSummaryRoutes");  //res suma
+const attemptQuestionRoutes = require("./routes/attemptQuestionRoutes");    //attemp ques
 
+app.use("/api/attempt-questions", attemptQuestionRoutes);
+app.use("/api/resultsummary", resultSummaryRoutes);
 app.use("/api/answers", answerRoutes);
 app.use("/api/attempts", attemptRoutes);
 app.use("/api/options", optionRoutes);

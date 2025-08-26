@@ -30,14 +30,6 @@ const ResultSummary = sequelize.define("ResultSummary", {
     type: DataTypes.INTEGER,
     defaultValue: 0
   },
-  perPage: {
-    type: DataTypes.JSON, // lưu thống kê theo trang (nếu cần)
-    allowNull: true
-  },
-  perSection: {
-    type: DataTypes.JSON, // lưu thống kê theo chương/mục (nếu cần)
-    allowNull: true
-  },
   rank: {
     type: DataTypes.INTEGER,
     allowNull: true

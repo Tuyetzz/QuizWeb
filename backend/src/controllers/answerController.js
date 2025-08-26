@@ -1,6 +1,7 @@
 const Answer = require("../models/Answer");
 const Attempt = require("../models/Attempt");
 const Question = require("../models/Question");
+const ResultSummary = require("../models/ResultSummary");
 
 // Lấy tất cả answer theo attemptId
 exports.getAnswersByAttempt = async (req, res) => {
@@ -84,10 +85,9 @@ exports.deleteAnswer = async (req, res) => {
 };
 
 // Submit nhiều answers 1 lần (bulk insert/update)
-exports.submitAnswers = async (req, res) => {   
+exports.submitAnswers = async (req, res) => {
   try {
     const { attemptId, answers } = req.body;
-    // answers = [{ questionId, selectedOptionIds, value, isCorrect, earnedPoints }]
 
     const attempt = await Attempt.findByPk(attemptId);
     if (!attempt) return res.status(400).json({ error: "Attempt không tồn tại" });
@@ -95,21 +95,25 @@ exports.submitAnswers = async (req, res) => {
     let results = [];
     let totalScore = 0;
     let totalMaxScore = 0;
+    let correctCount = 0;
+    let wrongCount = 0;
+    let blankCount = 0;
 
     for (const ans of answers) {
       const { questionId, selectedOptionIds, value, isCorrect, earnedPoints } = ans;
 
-      // check question tồn tại
       const question = await Question.findByPk(questionId);
       if (!question) continue;
 
-      // tính maxScore dựa trên question.points
       totalMaxScore += question.points || 1;
       if (earnedPoints) totalScore += earnedPoints;
 
-      // tìm xem đã có answer trong attempt này chưa
-      let answer = await Answer.findOne({ where: { attemptId, questionId } });
+      // update counts
+      if (isCorrect === true) correctCount++;
+      else if (isCorrect === false) wrongCount++;
+      else blankCount++;
 
+      let answer = await Answer.findOne({ where: { attemptId, questionId } });
       if (answer) {
         await answer.update({
           selectedOptionIds,
@@ -133,13 +137,21 @@ exports.submitAnswers = async (req, res) => {
       results.push(answer);
     }
 
-    // cập nhật attempt: submitted, score, maxScore
+    // cập nhật attempt
     await attempt.update({
       status: "submitted",
       submittedAt: new Date(),
       score: totalScore,
       maxScore: totalMaxScore
     });
+
+    // cập nhật hoặc tạo ResultSummary
+    let summary = await ResultSummary.findOne({ where: { attemptId } });
+    if (summary) {
+      await summary.update({ correctCount, wrongCount, blankCount });
+    } else {
+      summary = await ResultSummary.create({ attemptId, correctCount, wrongCount, blankCount });
+    }
 
     res.json({
       message: "Nộp bài thành công",
@@ -149,6 +161,7 @@ exports.submitAnswers = async (req, res) => {
         maxScore: totalMaxScore,
         status: attempt.status
       },
+      summary,
       answers: results
     });
   } catch (err) {

@@ -1,11 +1,16 @@
 // routes/authRoutes.js
 const express = require("express");
 const router = express.Router();
-const userController = require("../controllers/authController");
-const auth = require("../middlewares/authMiddleware");
+const authController = require("../controllers/authController");
+const authMiddleware = require("../middlewares/authMiddleware");
 
-router.post("/register", userController.register);
-router.post("/login", userController.login);
-router.get("/me", auth, userController.getMe);
+// auth routes
+router.post("/register", authController.register);
+router.post("/login", authController.login);
+router.post("/refresh", authController.refresh);
+router.post("/logout", authController.logout);
+
+// bảo vệ route này bằng access token
+router.get("/me", authMiddleware, authController.getMe);
 
 module.exports = router;
