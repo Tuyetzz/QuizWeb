@@ -3,6 +3,9 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
+const cors = require("cors");
+app.use(cors({ origin: "http://localhost:5173" })); // cổng FE Vite
+
 const authRoutes = require("./routes/authRoutes");   // register/login/me
 const userRoutes = require("./routes/userRoutes");   // CRUD admin
 const subjectRoutes = require("./routes/subjectRoutes");    //subject
@@ -24,6 +27,7 @@ app.use("/api/chapters", chapterRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+
 
 
 app.get("/", (req, res) => res.send("API running 🚀"));
