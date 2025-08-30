@@ -2,14 +2,28 @@ const Answer = require("../models/Answer");
 const Attempt = require("../models/Attempt");
 const Question = require("../models/Question");
 const ResultSummary = require("../models/ResultSummary");
+const Option = require("../models/Option");
+
 
 // Lấy tất cả answer theo attemptId
 exports.getAnswersByAttempt = async (req, res) => {
   try {
-    const { attemptId } = req.params;
-    const answers = await Answer.findAll({ where: { attemptId } });
+    const attemptId = req.params.attemptId;
+
+    const answers = await Answer.findAll({
+      where: { attemptId },
+      include: [
+        {
+          model: Question,
+          as: "question",
+          include: [{ model: Option, as: "options" }]
+        }
+      ]
+    });
+
     res.json(answers);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Lỗi khi lấy answers", details: err.message });
   }
 };

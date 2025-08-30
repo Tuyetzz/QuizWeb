@@ -10,3 +10,8 @@ export async function getAttempt(attemptId: number): Promise<Attempt> {
   const res = await http.get(`/attempts/${attemptId}`);
   return res.data;
 }
+
+export async function startAttempt(payload: CreateAttemptPayload): Promise<CreateAttemptResponse> {
+  const res = await http.post<CreateAttemptResponse>("/attempts/start", payload);
+  return res.data;
+}

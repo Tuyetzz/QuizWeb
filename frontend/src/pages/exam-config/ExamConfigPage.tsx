@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createAttempt } from "../../api/attempts";
+import { startAttempt  } from "../../api/attempts";
 
 export default function ExamConfigPage() {
   const { id: subjectId, chapterId } = useParams(); // /subjects/:id/chapters/:chapterId/config
@@ -16,29 +16,33 @@ export default function ExamConfigPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function handleStart() {
-    if (!chapterId) return;
+    if (!chapterId || !subjectId) return;
     setSubmitting(true);
     setError(null);
     try {
       const payload = {
+        userId: 1, // TODO: lấy từ auth context
+        subjectId: parseInt(subjectId, 10),
         chapterId: parseInt(chapterId, 10),
-        questionCount,
-        shuffleQuestions,
-        shuffleOptions,
         durationMinutes,
-        revealAnswerOnSelect,
-        pageSize,
+        settings: {
+          questionCount,
+          pageSize,
+          shuffleQuestions,
+          shuffleOptions,
+          revealAnswerOnSelect,
+        },
       };
-      const res = await createAttempt(payload);
-      // giả định BE trả { id: number }
+      const res = await startAttempt(payload);
       navigate(`/attempts/${res.id}`);
     } catch (e: any) {
       console.error(e);
-      setError("Không tạo được attempt. Kiểm tra log/BE.");
+      setError(e.response?.data?.error || "Không tạo được attempt. Kiểm tra log/BE.");
     } finally {
       setSubmitting(false);
     }
   }
+
 
   return (
     <div style={{ padding: 20, maxWidth: 560 }}>

@@ -6,6 +6,7 @@ import ExamConfigPage from "../../pages/exam-config/ExamConfigPage";
 import LoginPage from "../../pages/auth/LoginPage";
 import RegisterPage from "../../pages/auth/RegisterPage";
 import ProtectedRoute from "./ProtectedRoute";
+import AttemptDetailPage from "../../pages/attempts/AttemptDetailPage";
 
 export default function AppRoutes() {
   return (
@@ -19,6 +20,7 @@ export default function AppRoutes() {
         <Route path="/subjects" element={<SubjectsPage />} />
         <Route path="/subjects/:id/chapters" element={<ChaptersPage />} />
         <Route path="/subjects/:id/chapters/:chapterId/config" element={<ExamConfigPage />} />
+        <Route path="/attempts/:id" element={<AttemptDetailPage />} />
       </Route>
     </Routes>
   );

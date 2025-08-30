@@ -25,11 +25,15 @@ export interface Attempt {
   updatedAt: string;
 }
 
-export interface CreateAttemptPayload extends AttemptSettings {
+export interface CreateAttemptPayload {
+  userId: number;
+  subjectId: number;
   chapterId: number;
   durationMinutes: number;
-  // nếu backend cần thêm subjectId/userId thì thêm tại đây
+  settings: AttemptSettings;
 }
+
+
 
 export interface CreateAttemptResponse {
   id: number;               // attemptId trả về từ BE
