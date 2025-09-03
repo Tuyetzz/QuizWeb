@@ -1,31 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { http } from "../../api/http";
+import type { Option } from "../../types/options";
+import type { Question } from "../../types/question";
+import type { Answer } from "../../types/answer";
 
-interface Option {
-  id: number;
-  text: string;
-  isCorrect: boolean;
-  order: number;
-}
 
-interface Question {
-  id: number;
-  text: string;
-  type: "single" | "multiple" | "true_false" | "fill_blank";
-  options?: Option[];
-}
-
-interface Answer {
-  id: number;
-  attemptId: number;
-  questionId: number;
-  selectedOptionIds: number[] | null;
-  value: string | null;
-  isCorrect: boolean | null;
-  earnedPoints: number;
-  question: Question;
-}
 
 export default function AttemptDetailPage() {
   const { id } = useParams(); // attemptId
@@ -38,6 +18,7 @@ export default function AttemptDetailPage() {
         // Gọi BE lấy tất cả answers của attempt
         const res = await http.get(`/answers/attempt/${id}`);
         setAnswers(res.data);
+        console.log("Answers loaded:", res.data);
       } catch (err) {
         console.error("Error fetching attempt answers", err);
       } finally {
