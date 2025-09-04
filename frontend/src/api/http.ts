@@ -7,6 +7,10 @@ export const http = axios.create({
   withCredentials: false, // nếu backend có cookie/session
 });
 
+// attach token nếu có (khi F5)
+const token = localStorage.getItem("accessToken");
+if (token) http.defaults.headers.common.Authorization = `Bearer ${token}`;
+
 // Interceptor: gắn token vào header (nếu có login)
 http.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");

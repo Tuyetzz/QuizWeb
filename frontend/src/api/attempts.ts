@@ -31,3 +31,28 @@ export async function startPractice(payload: StartPracticePayload): Promise<Prac
   const res = await http.post<PracticeStartResponse>("/attempts/practice", payload);
   return res.data;
 }
+
+// ---- Cập nhật attempt (metadata, chuyển state nhẹ) ----
+// KHÔNG dùng để chấm điểm / submit
+export async function updateAttempt(
+  attemptId: number,
+  patch: Partial<Pick<Attempt, "status" | "settings" | "expiresAt" | "startedAt">>
+): Promise<Attempt> {
+  const res = await http.patch<Attempt>(`/attempts/${attemptId}`, patch);
+  return res.data;
+}
+
+// Kiểu dữ liệu server trả về khi submit (phù hợp GradingService)
+export type SubmitAttemptResult = {
+  attemptId: number;
+  status: "submitted" | "graded" | "expired" | "in_progress" | "draft";
+  score: number;
+  maxScore: number;
+  submittedAt?: string; // hoặc Date tùy backend serialize
+};
+
+// ---- Nộp bài (gọi grading service) ----
+export async function submitAttempt(attemptId: number): Promise<SubmitAttemptResult> {
+  const res = await http.post<SubmitAttemptResult>(`/attempts/${attemptId}/submit`);
+  return res.data;
+}

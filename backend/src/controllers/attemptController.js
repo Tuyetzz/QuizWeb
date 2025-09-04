@@ -142,58 +142,39 @@ exports.updateAttempt = async (req, res) => {
     const attempt = await Attempt.findByPk(req.params.id);
     if (!attempt) return res.status(404).json({ error: "Attempt không tồn tại" });
 
-    const {
-      status,
-      startedAt,
-      submittedAt,
-      timeSpentSeconds,
-      score,
-      maxScore,
-      settings,        // cho phép sửa nhẹ config (ví dụ practice)
-      expiresAt,
-    } = req.body;
-
-    // Kiểm soát status transition cơ bản
-    const allowedStatuses = ["draft", "in_progress", "submitted", "expired", "graded"];
-    if (status && !allowedStatuses.includes(status)) {
-      return res.status(400).json({ error: "Trạng thái không hợp lệ" });
-    }
-    // ví dụ: không cho quay lại draft sau khi in_progress
-    if (status === "draft" && attempt.status !== "draft") {
-      return res.status(400).json({ error: "Không thể chuyển về draft" });
-    }
-
-    // Ràng buộc thời gian
+    const { status, startedAt, settings, expiresAt } = req.body;
     const patch = {};
-    if (startedAt !== undefined) patch.startedAt = startedAt ? new Date(startedAt) : null;
-    if (submittedAt !== undefined) patch.submittedAt = submittedAt ? new Date(submittedAt) : null;
+
+    // Chỉ cho các status chuyển hợp lệ
+    const allow = (from, to) =>
+      (from === "draft" && to === "in_progress") ||
+      (from === to); // no-op
+
+    if (status) {
+      const allowedStatuses = ["draft", "in_progress", "submitted", "expired", "graded"];
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({ error: "Trạng thái không hợp lệ" });
+      }
+      if (!allow(attempt.status, status)) {
+        return res.status(400).json({ error: `Không thể chuyển từ ${attempt.status} → ${status}` });
+      }
+      patch.status = status;
+    }
+
+    // startedAt: chỉ set khi bắt đầu làm lần đầu
+    if (startedAt !== undefined) {
+      if (attempt.status !== "draft") {
+        return res.status(400).json({ error: "Không thể sửa startedAt sau khi đã bắt đầu" });
+      }
+      patch.startedAt = startedAt ? new Date(startedAt) : new Date();
+    }
+
+    // Cho phép chỉnh settings, expiresAt (tùy policy)
+    if (settings !== undefined) patch.settings = settings;
     if (expiresAt !== undefined) patch.expiresAt = expiresAt ? new Date(expiresAt) : null;
 
-    // Nếu chuyển sang submitted mà chưa có submittedAt thì set luôn
-    if (status === "submitted" && !patch.submittedAt && !attempt.submittedAt) {
-      patch.submittedAt = new Date();
-    }
-
-    // Điểm & thời gian
-    if (timeSpentSeconds !== undefined) {
-      const t = toInt(timeSpentSeconds);
-      if (t < 0) return res.status(400).json({ error: "timeSpentSeconds phải >= 0" });
-      patch.timeSpentSeconds = t;
-    }
-    if (score !== undefined) {
-      const s = Number(score);
-      if (s < 0) return res.status(400).json({ error: "score phải >= 0" });
-      patch.score = s;
-    }
-    if (maxScore !== undefined) {
-      const m = Number(maxScore);
-      if (m < 0) return res.status(400).json({ error: "maxScore phải >= 0" });
-      patch.maxScore = m;
-    }
-    if (settings !== undefined) {
-      patch.settings = settings; // tuỳ ý, nhưng khuyên nên kiểm tra định dạng ở nơi gọi
-    }
-    if (status) patch.status = status;
+    // Tuyệt đối KHÔNG nhận score/maxScore/submittedAt/timeSpentSeconds từ client tại đây
+    // (nếu cần, chỉ role admin mới được, và đặt ở 1 route khác)
 
     await attempt.update(patch);
     res.json(attempt);
@@ -201,6 +182,7 @@ exports.updateAttempt = async (req, res) => {
     res.status(500).json({ error: "Lỗi khi cập nhật attempt", details: err.message });
   }
 };
+
 
 // ===== DELETE /attempts/:id
 exports.deleteAttempt = async (req, res) => {
@@ -628,5 +610,16 @@ exports.startPractice = async (req, res) => {
     try { await t.rollback(); } catch {}
     console.error(err);
     return res.status(500).json({ error: "Lỗi khi bắt đầu practice", details: err.message });
+  }
+};
+
+// POST /attempts/:id/submit
+exports.submitAttempt = async (req, res) => {
+  try {
+    const result = await require("../services/GradingService")
+      .gradeAttempt({ attemptId: req.params.id, userId: req.user.id });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: "Không thể nộp bài", details: e.message });
   }
 };

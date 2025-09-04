@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { startExam, startPractice } from "../../api/attempts";
+import { useAuth } from "../../app/providers/AuthProvider"; // <-- chỉnh path theo app của bạn
 
 export default function AttemptConfigPage() {
-  const { id: subjectId, chapterId } = useParams();
+  const { id: subjectIdParam, chapterId: chapterIdParam } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth(); // { id, ... }
+
+  // Fallback userId = 1 nếu chưa đăng nhập/ chưa load xong
+  const userId = useMemo(() => {
+    const idNum = Number(user?.id);
+    return Number.isFinite(idNum) && idNum > 0 ? idNum : 1;
+  }, [user]);
 
   // mode
   const [mode, setMode] = useState<"exam" | "practice">("exam");
@@ -26,29 +34,46 @@ export default function AttemptConfigPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Parse param an toàn chỉ 1 lần
+  const subjectId = useMemo(() => Number(subjectIdParam), [subjectIdParam]);
+  const chapterId = useMemo(() => Number(chapterIdParam), [chapterIdParam]);
+
   async function handleStart() {
-    if (!chapterId || !subjectId) {
-      setError("Thiếu subjectId/chapterId trên URL.");
+    // --- Validate sớm, chưa bật submitting
+    if (!Number.isFinite(subjectId) || !Number.isFinite(chapterId)) {
+      setError("Thiếu hoặc sai subjectId/chapterId trên URL.");
       return;
     }
+
+    if (mode === "exam") {
+      if (questionCount < 1 || pageSize < 1 || durationMinutes < 1) {
+        setError("Cấu hình thi không hợp lệ.");
+        return;
+      }
+      if (pageSize > questionCount) {
+        setError("Số câu/trang không được lớn hơn số câu.");
+        return;
+      }
+    } else {
+      if (limit < 1) {
+        setError("Limit phải >= 1.");
+        return;
+      }
+      if (offset < 0) {
+        setError("Offset phải >= 0.");
+        return;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
       if (mode === "exam") {
-        if (questionCount < 1 || pageSize < 1 || durationMinutes < 1) {
-          setError("Cấu hình thi không hợp lệ.");
-          return;
-        }
-        if (pageSize > questionCount) {
-          setError("Số câu/trang không được lớn hơn số câu.");
-          return;
-        }
-
         const payload = {
-          userId: 1, // TODO: lấy từ auth context
-          subjectId: parseInt(subjectId, 10),
-          chapterId: parseInt(chapterId, 10),
+          userId, // <-- lấy từ auth, fallback 1
+          subjectId,
+          chapterId,
           durationMinutes,
           settings: {
             mode: "exam" as const,
@@ -64,15 +89,10 @@ export default function AttemptConfigPage() {
           state: { totals: res.totals, settings: res.settings },
         });
       } else {
-        if (limit < 1) {
-          setError("Limit phải >= 1.");
-          return;
-        }
-
         const payload = {
-          userId: 1, // TODO: lấy từ auth context
-          subjectId: parseInt(subjectId, 10),
-          chapterId: parseInt(chapterId, 10),
+          userId, // <-- lấy từ auth, fallback 1
+          subjectId,
+          chapterId,
           durationMinutes, // optional
           range: { offset, limit },
           settings: {
@@ -88,7 +108,7 @@ export default function AttemptConfigPage() {
       }
     } catch (e: any) {
       console.error(e);
-      setError(e.response?.data?.error || "Không tạo được attempt.");
+      setError(e?.response?.data?.error || "Không tạo được attempt.");
     } finally {
       setSubmitting(false);
     }
@@ -98,7 +118,7 @@ export default function AttemptConfigPage() {
     <div style={{ padding: 20, maxWidth: 560 }}>
       <h1>Cấu hình Attempt</h1>
       <div style={{ color: "#6b7280", marginBottom: 16 }}>
-        Subject: {subjectId} · Chapter: {chapterId}
+        User: {userId} · Subject: {subjectIdParam} · Chapter: {chapterIdParam}
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
@@ -123,7 +143,7 @@ export default function AttemptConfigPage() {
               <input
                 type="number"
                 value={questionCount}
-                onChange={(e) => setQuestionCount(parseInt(e.target.value || "0", 10))}
+                onChange={(e) => setQuestionCount(Number(e.target.value || 0))}
                 min={1}
                 style={{ marginLeft: 8 }}
               />
@@ -134,7 +154,7 @@ export default function AttemptConfigPage() {
               <input
                 type="number"
                 value={durationMinutes}
-                onChange={(e) => setDurationMinutes(parseInt(e.target.value || "0", 10))}
+                onChange={(e) => setDurationMinutes(Number(e.target.value || 0))}
                 min={1}
                 style={{ marginLeft: 8 }}
               />
@@ -145,7 +165,7 @@ export default function AttemptConfigPage() {
               <input
                 type="number"
                 value={pageSize}
-                onChange={(e) => setPageSize(parseInt(e.target.value || "0", 10))}
+                onChange={(e) => setPageSize(Number(e.target.value || 0))}
                 min={1}
                 style={{ marginLeft: 8 }}
               />
@@ -161,7 +181,7 @@ export default function AttemptConfigPage() {
               <input
                 type="number"
                 value={offset}
-                onChange={(e) => setOffset(parseInt(e.target.value || "0", 10))}
+                onChange={(e) => setOffset(Number(e.target.value || 0))}
                 min={0}
                 style={{ marginLeft: 8 }}
               />
@@ -172,7 +192,7 @@ export default function AttemptConfigPage() {
               <input
                 type="number"
                 value={limit}
-                onChange={(e) => setLimit(parseInt(e.target.value || "0", 10))}
+                onChange={(e) => setLimit(Number(e.target.value || 0))}
                 min={1}
                 style={{ marginLeft: 8 }}
               />

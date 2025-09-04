@@ -37,6 +37,7 @@ export interface Attempt {
   status: AttemptStatus;
   startedAt: string | null;
   submittedAt: string | null;
+  expiresAt: string | null; 
   durationMinutes: number;
   timeSpentSeconds: number;
   settings: AttemptSettings | null;

@@ -1,6 +1,7 @@
 // app.js
 const express = require("express");
 const app = express();
+const auth = require("./middlewares/authMiddleware");
 app.use(express.json());
 
 const cors = require("cors");
@@ -17,16 +18,16 @@ const answerRoutes = require("./routes/answerRoutes");  //answer
 const resultSummaryRoutes = require("./routes/resultSummaryRoutes");  //res suma
 const attemptQuestionRoutes = require("./routes/attemptQuestionRoutes");    //attemp ques
 
-app.use("/api/attempt-questions", attemptQuestionRoutes);
-app.use("/api/resultsummary", resultSummaryRoutes);
-app.use("/api/answers", answerRoutes);
-app.use("/api/attempts", attemptRoutes);
-app.use("/api/options", optionRoutes);
-app.use("/api/questions", questionRoutes);
-app.use("/api/chapters", chapterRoutes);
-app.use("/api/subjects", subjectRoutes);
+app.use("/api/attempt-questions",auth, attemptQuestionRoutes);
+app.use("/api/resultsummary",auth, resultSummaryRoutes);
+app.use("/api/answers",auth, answerRoutes);
+app.use("/api/attempts",auth, attemptRoutes);
+app.use("/api/options",auth, optionRoutes);
+app.use("/api/questions",auth, questionRoutes);
+app.use("/api/chapters",auth, chapterRoutes);
+app.use("/api/subjects",auth, subjectRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/users",userRoutes);
 
 
 
