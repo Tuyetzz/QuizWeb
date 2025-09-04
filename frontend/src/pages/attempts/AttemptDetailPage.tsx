@@ -1,106 +1,187 @@
-import { useEffect, useState } from "react";
+// src/pages/AttemptDetailPage.tsx
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { http } from "../../api/http";
-import type { Option } from "../../types/options";
-import type { Question } from "../../types/question";
+
+import { getAttempt } from "../../api/attempts";
+import { getAttemptQuestions } from "../../api/attemptsQuestion";
+import { getAnswersByAttempt, createAnswer, updateAnswer } from "../../api/answer";
+import type { AttemptQuestion } from "../../types/attemptsquestion";
 import type { Answer } from "../../types/answer";
-
-
+import type { Option } from "../../types/options";
 
 export default function AttemptDetailPage() {
-  const { id } = useParams(); // attemptId
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const { id } = useParams();
+  const attemptId = Number(id);
+
+  const [attempt, setAttempt] = useState<any>(null);
+  const [aqs, setAqs] = useState<AttemptQuestion[]>([]);
+  const [answersByQid, setAnswersByQid] = useState<Record<number, Answer>>({});
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
-    async function fetchData() {
+    let mounted = true;
+    async function fetchAll() {
       try {
-        // Gọi BE lấy tất cả answers của attempt
-        const res = await http.get(`/answers/attempt/${id}`);
-        setAnswers(res.data);
-        console.log("Answers loaded:", res.data);
+        const [att, aqList, ansList] = await Promise.all([
+          getAttempt(attemptId),
+          getAttemptQuestions(attemptId),
+          getAnswersByAttempt(attemptId),
+        ]);
+
+        if (!mounted) return;
+        setAttempt(att);
+        setAqs(aqList);
+
+        const map: Record<number, Answer> = {};
+        ansList.forEach((a) => {
+          map[a.questionId] = a;
+        });
+        setAnswersByQid(map);
       } catch (err) {
-        console.error("Error fetching attempt answers", err);
+        console.error("Failed to fetch attempt detail", err);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }
-    fetchData();
-  }, [id]);
+    fetchAll();
+    return () => {
+      mounted = false;
+    };
+  }, [attemptId]);
 
-  if (loading) return <p>Đang tải đề thi...</p>;
-  if (!answers.length) return <p>Không có câu hỏi trong attempt này.</p>;
+  // phân trang theo pageIndex
+  const pages = useMemo(() => {
+    const grouped: Record<number, AttemptQuestion[]> = {};
+    for (const aq of aqs) {
+      if (!grouped[aq.pageIndex]) grouped[aq.pageIndex] = []; //neu k co tao mang
+      grouped[aq.pageIndex].push(aq); //neu co index roi thi se day cau hoi vao
+    }
+    const sortedIndexes = Object.keys(grouped)
+      .map((n) => Number(n))
+      .sort((a, b) => a - b); //sort tang dan
+    return sortedIndexes.map((i) => grouped[i]);
+  }, [aqs]);
+
+  const totalPages = pages.length || 1;
+  const currentPageItems = pages[currentPage] ?? [];
+
+  const readOnly = attempt?.status !== "in_progress";
+
+  function orderedOptions(options?: Option[], order?: number[] | null): Option[] {
+    if (!options) return [];
+    if (!order) return options;
+    const rank = new Map(order.map((id, idx) => [id, idx]));
+    return options.slice().sort((a, b) => {
+      const ra = rank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const rb = rank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return ra - rb;
+    });
+  }
+
+  async function upsertAnswer(questionId: number, patch: Partial<Answer>) {
+    const prev = answersByQid[questionId];
+    try {
+      let res: Answer;
+      if (prev?.id) {
+        res = await updateAnswer(prev.id, patch);
+      } else {
+        res = await createAnswer(attemptId, questionId, patch);
+      }
+      setAnswersByQid((m) => ({ ...m, [questionId]: res }));
+    } catch (err) {
+      console.error("Save answer failed", err);
+    }
+  }
+
+  function onPickSingle(questionId: number, optionId: number) {
+    if (readOnly) return;
+    upsertAnswer(questionId, { selectedOptionIds: [optionId], value: null });
+  }
+  function onToggleMulti(questionId: number, optionId: number) {
+    if (readOnly) return;
+    const cur = answersByQid[questionId]?.selectedOptionIds ?? [];
+    const set = new Set(cur);
+    set.has(optionId) ? set.delete(optionId) : set.add(optionId);
+    upsertAnswer(questionId, {
+      selectedOptionIds: Array.from(set),
+      value: null,
+    });
+  }
+  function onChangeFill(questionId: number, val: string) {
+    if (readOnly) return;
+    upsertAnswer(questionId, { selectedOptionIds: null, value: val });
+  }
+
+  if (loading) return <p>Đang tải đề...</p>;
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Attempt #{id}</h1>
-      <div style={{ display: "grid", gap: 20 }}>
-        {answers.map((ans, index) => (
-          <div
-            key={ans.id}
-            style={{
-              padding: 16,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              background: "#fafafa",
-            }}
-          >
-            <div style={{ marginBottom: 12 }}>
-              <b>Câu {index + 1}:</b> {ans.question.text}
-            </div>
+    <div>
+      <h1>Attempt #{attemptId}</h1>
+      {currentPageItems.map((aq) => {
+        const q = aq.question;
+        if (!q) return null;
+        const ans = answersByQid[q.id];
+        const opts = orderedOptions(q.options, aq.optionOrder);
+        console.log({ //log
+          qid: q.id,
+          qType: q.type,
+          hasOptions: Array.isArray(q.options),
+          optionsLen: q.options?.length,
+          optionOrder: aq.optionOrder,
+        });
 
-            {/* Render options nếu là single/multiple */}
-            {(ans.question.type === "single" || ans.question.type === "multiple") &&
-              ans.question.options?.map((opt) => (
-                <label key={opt.id} style={{ display: "block", marginBottom: 8 }}>
+        return (
+          <div key={aq.id}>
+            <p>{q.text}</p>
+            {(q.type === "single" || q.type === "multiple" || q.type === "true_false") &&
+              opts.map((opt) => (
+                <label key={opt.id}>
                   <input
-                    type={ans.question.type === "single" ? "radio" : "checkbox"}
-                    name={`q_${ans.questionId}`}
-                    value={opt.id}
-                    checked={ans.selectedOptionIds?.includes(opt.id) || false}
-                    readOnly
+                    type={q.type === "multiple" ? "checkbox" : "radio"}
+                    name={`q_${q.id}`}
+                    checked={
+                      q.type === "multiple"
+                        ? ans?.selectedOptionIds?.includes(opt.id)
+                        : ans?.selectedOptionIds?.[0] === opt.id
+                    }
+                    onChange={() =>
+                      q.type === "multiple"
+                        ? onToggleMulti(q.id, opt.id)
+                        : onPickSingle(q.id, opt.id)
+                    }
+                    disabled={readOnly}
                   />
                   {opt.text}
                 </label>
+                
               ))}
-
-            {/* True/False */}
-            {ans.question.type === "true_false" && (
-              <div>
-                <label>
-                  <input
-                    type="radio"
-                    name={`q_${ans.questionId}`}
-                    value="true"
-                    checked={ans.selectedOptionIds?.includes(1) || false}
-                    readOnly
-                  />
-                  Đúng
-                </label>
-                <label style={{ marginLeft: 20 }}>
-                  <input
-                    type="radio"
-                    name={`q_${ans.questionId}`}
-                    value="false"
-                    checked={ans.selectedOptionIds?.includes(0) || false}
-                    readOnly
-                  />
-                  Sai
-                </label>
-              </div>
-            )}
-
-            {/* Fill blank */}
-            {ans.question.type === "fill_blank" && (
+            {q.type === "fill_blank" && (
               <input
                 type="text"
-                value={ans.value || ""}
-                readOnly
-                style={{ border: "1px solid #ccc", padding: 4 }}
+                value={ans?.value ?? ""}
+                onChange={(e) => onChangeFill(q.id, e.target.value)}
+                readOnly={readOnly}
               />
             )}
           </div>
-        ))}
+        );
+      })}
+
+      {/* Pagination */}
+      <div>
+        <button disabled={currentPage <= 0} onClick={() => setCurrentPage((p) => p - 1)}>
+          Trang trước
+        </button>
+        <span>
+          {currentPage + 1} / {totalPages}
+        </span>
+        <button
+          disabled={currentPage >= totalPages - 1}
+          onClick={() => setCurrentPage((p) => p + 1)}
+        >
+          Trang sau
+        </button>
       </div>
     </div>
   );

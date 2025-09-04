@@ -1,6 +1,7 @@
 const AttemptQuestion = require("../models/AttemptQuestion");
 const Attempt = require("../models/Attempt");
 const Question = require("../models/Question");
+const Option = require("../models/Option");
 
 // Lấy tất cả AttemptQuestion theo attemptId
 exports.getAttemptQuestions = async (req, res) => {
@@ -8,7 +9,9 @@ exports.getAttemptQuestions = async (req, res) => {
     const { attemptId } = req.params;
     const list = await AttemptQuestion.findAll({
       where: { attemptId },
-      include: [{ model: Question, as: "question" }]
+      include: [{ model: Question, as: "question", 
+        include: [{ model: Option, as: "options" }]
+      }]
     });
     res.json(list);
   } catch (err) {

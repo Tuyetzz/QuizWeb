@@ -20,7 +20,6 @@ const User = sequelize.define("User", {
   timestamps: true,
   tableName: "users",
   defaultScope: { attributes: { exclude: ["passwordHash"] } },   // don’t leak by default
-  indexes: [{ unique: true, fields: ["email"] }],
   hooks: {
     beforeValidate: (user) => { if (user.email) user.email = user.email.trim().toLowerCase(); }
   }

@@ -1,4 +1,4 @@
-// /api/attemptsquestions.ts
+// /api/attemptsquestion.ts
 import { http } from "./http";
 import type { AttemptQuestion } from "../types/attemptsquestion";
 

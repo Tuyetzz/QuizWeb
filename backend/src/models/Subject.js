@@ -13,7 +13,7 @@ const Subject = sequelize.define("Subject", {
   },
   slug: {
     type: DataTypes.STRING(150),
-    unique: true,
+    unique: 'uq_subjects_slug',
     allowNull: false
   },
   order: {
